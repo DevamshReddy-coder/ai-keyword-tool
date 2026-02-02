@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Keyword Discovery Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f6f8;
+            text-align: center;
+            padding: 40px;
+        }
+        textarea {
+            width: 60%;
+            height: 100px;
+            padding: 10px;
+            font-size: 16px;
+        }
+        button {
+            margin-top: 15px;
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #2d89ef;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        #output {
+            margin-top: 25px;
+            padding: 15px;
+            background: white;
+            width: 60%;
+            margin-left: auto;
+            margin-right: auto;
+            border-radius: 6px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+
+    <h1>AI Keyword Discovery Prototype</h1>
+    <p>Enter a research idea or keywords:</p>
+
+    <textarea id="userInput" placeholder="Example: Detecting Alzheimer's using speech patterns"></textarea>
+    <br>
+    <button onclick="generateKeywords()">Generate Keywords</button>
+
+    <div id="output">
+        <strong>Generated Keywords will appear here...</strong>
+    </div>
+
+    <script>
+async function generateKeywords() {
+    let text = document.getElementById("userInput").value;
+
+    const response = await fetch("http://127.0.0.1:5000/keywords", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ text: text })
+    });
+
+    const data = await response.json();
+
+    document.getElementById("output").innerHTML =
+        "<strong>Generated Keywords:</strong><br>" +
+        data.keywords.join(", ");
+}
+</script>
+
+
+</body>
+</html>
