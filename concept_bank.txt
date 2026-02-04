@@ -1,0 +1,25 @@
+machine learning
+deep learning
+neural networks
+computer vision
+natural language processing
+image segmentation
+object detection
+speech recognition
+data mining
+predictive modeling
+pattern recognition
+information retrieval
+biomedical engineering
+signal processing
+robotics automation
+cybersecurity systems
+cloud computing
+internet of things
+blockchain technology
+renewable energy systems
+wireless communication
+human computer interaction
+data science applications
+artificial intelligence in healthcare
+computational biology

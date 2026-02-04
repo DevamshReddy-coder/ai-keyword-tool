@@ -3,6 +3,8 @@ from flask_cors import CORS
 from keybert import KeyBERT
 from flask import render_template
 from sentence_transformers import SentenceTransformer, util
+import re
+
 
 
 # Words we DON'T want as keywords
@@ -35,20 +37,50 @@ def clean_keywords(keywords):
 
     return list(set(final_keywords))
 
+def refine_keywords(keywords):
+    refined = []
+
+    # sort by length (longer phrases first)
+    keywords = sorted(keywords, key=len, reverse=True)
+
+    for kw in keywords:
+        if not any(kw in other and kw != other for other in refined):
+            refined.append(kw)
+
+    return refined
+
+
+def build_concept_bank():
+    concepts = set()
+
+    with open("research_titles.txt", "r", encoding="utf-8") as f:
+        titles = f.readlines()
+
+    for title in titles:
+        title = title.lower()
+
+        # remove special characters
+        title = re.sub(r"[^a-z0-9\s]", "", title)
+
+        words = title.split()
+
+        # create 2-word and 3-word phrases
+        for i in range(len(words)):
+            if i + 1 < len(words):
+                phrase2 = words[i] + " " + words[i+1]
+                concepts.add(phrase2)
+            if i + 2 < len(words):
+                phrase3 = words[i] + " " + words[i+1] + " " + words[i+2]
+                concepts.add(phrase3)
+
+    return list(concepts)
+
+
 def expand_keywords(base_keywords):
     # A small research concept bank (we will grow this later)
-    concept_bank = [
-        "medical image segmentation",
-        "glioma classification",
-        "radiology AI",
-        "convolutional neural networks in healthcare",
-        "MRI scan analysis",
-        "tumor localization",
-        "computer aided diagnosis",
-        "biomedical image processing",
-        "neural network based detection",
-        "clinical decision support systems"
-    ]
+    concept_bank = build_concept_bank()
+
+
 
     expanded = []
 
@@ -59,7 +91,7 @@ def expand_keywords(base_keywords):
         similarities = util.cos_sim(keyword_embedding, bank_embeddings)[0]
 
         for i, score in enumerate(similarities):
-            if score > 0.5:  # similarity threshold
+            if score > 0.65:  # similarity threshold
                 expanded.append(concept_bank[i])
 
     return list(set(expanded))
@@ -95,8 +127,9 @@ def generate_keywords():
     expanded_keywords = expand_keywords(cleaned_keywords)
 
     all_keywords = list(set(cleaned_keywords + expanded_keywords))
+    final_keywords = refine_keywords(all_keywords)
 
-    return jsonify({"keywords": all_keywords})
+    return jsonify({"keywords": final_keywords})
 
 if __name__ == "__main__":
     app.run(debug=True)

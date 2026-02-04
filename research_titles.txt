@@ -1,0 +1,10 @@
+Deep learning based brain tumor segmentation in MRI images
+A blockchain framework for secure IoT data sharing
+Machine learning techniques for intrusion detection in cloud computing
+Computer vision methods for autonomous vehicle navigation
+Natural language processing for clinical text analysis
+Neural network models for speech emotion recognition
+Artificial intelligence in precision agriculture monitoring
+Cybersecurity threat detection using anomaly detection algorithms
+Robotics and AI for industrial automation systems
+Medical image analysis using convolutional neural networks
