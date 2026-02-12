@@ -6,69 +6,139 @@
         body {
             font-family: Arial, sans-serif;
             background-color: #f4f6f8;
-            text-align: center;
             padding: 40px;
         }
+
+        h1, p {
+            text-align: center;
+        }
+
         textarea {
             width: 60%;
             height: 100px;
             padding: 10px;
             font-size: 16px;
+            display: block;
+            margin: 0 auto;
         }
+
         button {
-            margin-top: 15px;
-            padding: 10px 20px;
-            font-size: 16px;
+            padding: 8px 15px;
+            font-size: 14px;
             background-color: #2d89ef;
             color: white;
             border: none;
             cursor: pointer;
+            border-radius: 4px;
         }
-        #output {
-            margin-top: 25px;
-            padding: 15px;
+
+        #generateBtn {
+            display: block;
+            margin: 15px auto;
+        }
+
+        #mainContainer {
+            display: flex;
+            gap: 30px;
+            margin-top: 40px;
+        }
+
+        #leftPanel, #rightPanel {
+            flex: 1;
             background: white;
-            width: 60%;
-            margin-left: auto;
-            margin-right: auto;
+            padding: 20px;
             border-radius: 6px;
             box-shadow: 0 0 5px rgba(0,0,0,0.1);
         }
+
+        .chip {
+            margin: 5px;
+        }
+
+        .group-chip {
+            display: inline-block;
+            margin: 5px;
+            padding: 5px 8px;
+            background-color: #ddd;
+            border-radius: 4px;
+        }
     </style>
 </head>
+
 <body>
 
     <h1>AI Keyword Discovery Prototype</h1>
     <p>Enter a research idea or keywords:</p>
 
     <textarea id="userInput" placeholder="Example: Detecting Alzheimer's using speech patterns"></textarea>
-    <br>
-    <button onclick="generateKeywords()">Generate Keywords</button>
+    <button id="generateBtn" onclick="generateKeywords()">Generate Keywords</button>
 
-    <div id="output">
-        <strong>Generated Keywords will appear here...</strong>
+    <div id="mainContainer">
+
+        <!-- LEFT: Query Builder -->
+        <div id="leftPanel">
+            <h2>Query Builder</h2>
+            <div id="groupContainer"></div>
+        </div>
+
+        <!-- RIGHT: Suggested Keywords -->
+        <div id="rightPanel">
+            <h2>Suggested Keywords</h2>
+            <div id="suggestionsContainer"></div>
+        </div>
+
     </div>
 
-    <script>
+<script>
+let selectedGroups = [[]];  // one OR group initially
+
 async function generateKeywords() {
     let text = document.getElementById("userInput").value;
 
-    const response = await fetch("http://127.0.0.1:5000/keywords", {
+    const response = await fetch("/keywords", {
         method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: text })
     });
 
     const data = await response.json();
 
-    document.getElementById("output").innerHTML =
-        "<strong>Generated Keywords:</strong><br>" +
-        data.keywords.join(", ");
+    displaySuggestions(data.keywords);
+    renderGroups();
+}
+
+function displaySuggestions(keywords) {
+    let container = document.getElementById("suggestionsContainer");
+    container.innerHTML = "";
+
+    keywords.forEach(keyword => {
+        let chip = document.createElement("button");
+        chip.className = "chip";
+        chip.innerText = keyword;
+        chip.onclick = () => addToGroup(keyword);
+
+        container.appendChild(chip);
+    });
+}
+
+function addToGroup(keyword) {
+    selectedGroups[0].push(keyword);
+    renderGroups();
+}
+
+function renderGroups() {
+    let container = document.getElementById("groupContainer");
+    container.innerHTML = "<h3>OR Group</h3>";
+
+    selectedGroups[0].forEach(term => {
+        let termChip = document.createElement("span");
+        termChip.className = "group-chip";
+        termChip.innerText = term;
+
+        container.appendChild(termChip);
+    });
 }
 </script>
-
 
 </body>
 </html>
