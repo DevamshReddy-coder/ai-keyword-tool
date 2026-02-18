@@ -94,7 +94,10 @@ def build_boolean_query(or_groups, not_group=None):
     return final_query
 
 
+import time
+
 def fetch_dynamic_titles(query):
+
     url = "https://api.semanticscholar.org/graph/v1/paper/search"
     params = {
         "query": query,
@@ -102,17 +105,59 @@ def fetch_dynamic_titles(query):
         "fields": "title"
     }
 
-    response = requests.get(url, params=params)
+    for attempt in range(2):  # try twice
+        try:
+            response = requests.get(url, params=params, timeout=5)
 
-    titles = []
+            if response.status_code == 200:
+                data = response.json()
+                titles = []
 
-    if response.status_code == 200:
-        data = response.json()
-        for paper in data.get("data", []):
-            if paper.get("title"):
-                titles.append(paper["title"])
+                for paper in data.get("data", []):
+                    if paper.get("title"):
+                        titles.append(paper["title"])
 
-    return titles
+                if titles:
+                    return titles
+
+        except Exception as e:
+            print("API attempt failed:", e)
+
+        time.sleep(1)  # wait 1 second before retry
+
+    print("Semantic Scholar returned nothing. Trying OpenAlex...")
+    openalex_titles = fetch_openalex_titles(query)
+
+    print("OpenAlex titles fetched:", len(openalex_titles))
+
+    return openalex_titles
+
+
+def fetch_openalex_titles(query):
+
+    url = "https://api.openalex.org/works"
+    params = {
+        "search": query,
+        "per_page": 20
+    }
+
+    try:
+        response = requests.get(url, params=params, timeout=5)
+
+        if response.status_code == 200:
+            data = response.json()
+            titles = []
+
+            for work in data.get("results", []):
+                if work.get("title"):
+                    titles.append(work["title"])
+
+            return titles
+
+    except Exception as e:
+        print("OpenAlex failed:", e)
+
+    return []
 
 
 
@@ -144,37 +189,102 @@ def build_concept_bank():
     return list(concepts)
 
 
-def expand_keywords(base_keywords):
 
-    titles = fetch_dynamic_titles(" ".join(base_keywords))
+def expand_keywords(base_keywords, max_depth=2, top_k=8):
+    all_expanded = set(base_keywords)
 
-    concept_bank = []
+    current_level = base_keywords
 
-    # Extract phrases from titles
-    for title in titles:
-        title = re.sub(r"[^a-zA-Z0-9\s]", "", title.lower())
-        words = title.split()
+    for depth in range(max_depth):
+        print(f"Expansion depth: {depth+1}")
 
-        for i in range(len(words)):
-            if i + 1 < len(words):
-                concept_bank.append(words[i] + " " + words[i+1])
-            if i + 2 < len(words):
-                concept_bank.append(words[i] + " " + words[i+1] + " " + words[i+2])
+        titles = fetch_dynamic_titles(" ".join(current_level))
+        print("Number of titles fetched:", len(titles))
 
-    expanded = []
+        if not titles:
+            break
 
-    # Compare semantic similarity
-    for keyword in base_keywords:
-        keyword_embedding = semantic_model.encode(keyword, convert_to_tensor=True)
+        concept_bank = []
+
+        for title in titles:
+            title = re.sub(r"[^a-zA-Z0-9\s]", "", title.lower())
+            words = title.split()
+
+            for i in range(len(words)):
+                if i + 1 < len(words):
+                    concept_bank.append(words[i] + " " + words[i+1])
+                if i + 2 < len(words):
+                    concept_bank.append(words[i] + " " + words[i+1] + " " + words[i+2])
+
+        concept_bank = list(set(concept_bank))
+
+        if not concept_bank:
+            break
+
+        keyword_embeddings = semantic_model.encode(current_level, convert_to_tensor=True)
         bank_embeddings = semantic_model.encode(concept_bank, convert_to_tensor=True)
 
-        similarities = util.cos_sim(keyword_embedding, bank_embeddings)[0]
+        similarities = util.cos_sim(keyword_embeddings, bank_embeddings)
 
-        for i, score in enumerate(similarities):
-            if score > 0.65:
-                expanded.append(concept_bank[i])
+        new_terms = []
 
-    return list(set(expanded))
+        for i in range(len(current_level)):
+            for j in range(len(concept_bank)):
+                if similarities[i][j] > 0.7:
+                    new_terms.append(concept_bank[j])
+
+        new_terms = list(set(new_terms))
+
+        # Keep only top_k terms
+        new_terms = new_terms[:top_k]
+
+        if not new_terms:
+            break
+
+        all_expanded.update(new_terms)
+
+        # Only expand strongest 3 next round
+        current_level = new_terms[:3]
+
+    return list(all_expanded)
+
+def filter_phrases(phrases):
+    bad_starts = {"of", "for", "and", "in", "on", "by", "with", "to"}
+    bad_ends = {"of", "for", "and", "in", "on", "by", "with", "to"}
+
+    cleaned = []
+
+    for phrase in phrases:
+        words = phrase.split()
+
+        if len(words) < 2:
+            continue
+
+        if words[0] in bad_starts:
+            continue
+
+        if words[-1] in bad_ends:
+            continue
+
+        cleaned.append(phrase)
+
+    return list(set(cleaned))
+
+def rank_keywords_by_relevance(keywords, original_text):
+    if not keywords:
+        return keywords
+
+    text_embedding = semantic_model.encode(original_text, convert_to_tensor=True)
+    keyword_embeddings = semantic_model.encode(keywords, convert_to_tensor=True)
+
+    similarities = util.cos_sim(text_embedding, keyword_embeddings)[0]
+
+    scored = list(zip(keywords, similarities.tolist()))
+    scored.sort(key=lambda x: x[1], reverse=True)
+
+    return [kw for kw, score in scored]
+
+
 
 
 def fetch_papers(query):
@@ -231,10 +341,15 @@ def generate_keywords():
 
     cleaned_keywords = clean_keywords(keywords)
 
-    expanded_keywords = expand_keywords(cleaned_keywords)
+    expanded_keywords = filter_phrases(
+    expand_keywords(cleaned_keywords)
+)
+
 
     all_keywords = list(set(cleaned_keywords + expanded_keywords))
     final_keywords = refine_keywords(all_keywords)
+    final_keywords = rank_keywords_by_relevance(final_keywords, text)
+
 
     clusters = cluster_keywords(final_keywords)
 
@@ -242,6 +357,59 @@ def generate_keywords():
     "clusters": clusters,
     "keywords": final_keywords
 })
+
+
+@app.route("/expand-term", methods=["POST"])
+def expand_term():
+    data = request.json
+    term = data.get("term", "").strip()
+
+    if not term:
+        return jsonify({"expanded": []})
+
+    print(f"\nExpanding term: {term}")
+
+    # Get research titles related ONLY to this term
+    titles = fetch_dynamic_titles(term)
+
+    # Safety check
+    if not titles:
+        print("No titles found for expansion.")
+        return jsonify({"expanded": []})
+
+    # Convert titles → phrases
+    concept_bank = []
+    for title in titles:
+        title = re.sub(r"[^a-zA-Z0-9\s]", "", title.lower())
+        words = title.split()
+
+        for i in range(len(words)):
+            if i + 1 < len(words):
+                concept_bank.append(words[i] + " " + words[i+1])
+            if i + 2 < len(words):
+                concept_bank.append(words[i] + " " + words[i+1] + " " + words[i+2])
+
+    # Semantic similarity filtering
+    keyword_embedding = semantic_model.encode(term, convert_to_tensor=True)
+    bank_embeddings = semantic_model.encode(concept_bank, convert_to_tensor=True)
+
+    similarities = util.cos_sim(keyword_embedding, bank_embeddings)[0]
+
+    expanded_terms = []
+    for i, score in enumerate(similarities):
+        if score > 0.55:   # lower than before → exploration mode
+            expanded_terms.append(concept_bank[i])
+
+    # Clean + refine
+    expanded_terms = clean_keywords([(t, 1.0) for t in expanded_terms])
+    expanded_terms = refine_keywords(expanded_terms)
+
+    print("Expanded terms:", expanded_terms[:10])
+
+    return jsonify({
+        "expanded": expanded_terms[:15]
+    })
+
 
 @app.route("/build-query", methods=["POST"])
 def build_query_route():
