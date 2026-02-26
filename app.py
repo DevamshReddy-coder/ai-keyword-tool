@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from flask_socketio import SocketIO
 from keybert import KeyBERT
 from flask import render_template
 from sentence_transformers import SentenceTransformer, util
@@ -323,6 +324,8 @@ def home():
 
 CORS(app)
 
+socketio = SocketIO(app, cors_allowed_origins='*')
+
 kw_model = KeyBERT()
 semantic_model = SentenceTransformer('all-MiniLM-L6-v2')
 
@@ -352,11 +355,17 @@ def generate_keywords():
 
 
     clusters = cluster_keywords(final_keywords)
+    # Emit suggestions + activity to connected realtime clients
+    try:
+        socketio.emit('suggestions', {'keywords': final_keywords, 'clusters': clusters})
+        socketio.emit('activity', {'msg': f'Generated {len(final_keywords)} keywords'})
+    except Exception:
+        pass
 
     return jsonify({
-    "clusters": clusters,
-    "keywords": final_keywords
-})
+        "clusters": clusters,
+        "keywords": final_keywords
+    })
 
 
 @app.route("/expand-term", methods=["POST"])
@@ -405,6 +414,12 @@ def expand_term():
     expanded_terms = refine_keywords(expanded_terms)
 
     print("Expanded terms:", expanded_terms[:10])
+    # Emit incremental suggestions and activity
+    try:
+        socketio.emit('suggestions_append', {'expanded': expanded_terms[:15]})
+        socketio.emit('activity', {'msg': f"Expanded '{term}' → {len(expanded_terms[:15])} terms"})
+    except Exception:
+        pass
 
     return jsonify({
         "expanded": expanded_terms[:15]
@@ -419,6 +434,11 @@ def build_query_route():
     not_group = data.get("not_group", [])
 
     boolean_query = build_boolean_query(or_groups, not_group)
+    try:
+        socketio.emit('activity', {'msg': 'Built boolean query'})
+        socketio.emit('boolean_query', {'query': boolean_query})
+    except Exception:
+        pass
 
     return jsonify({
         "boolean_query": boolean_query
@@ -430,5 +450,6 @@ def build_query_route():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    # Use SocketIO runner (eventlet recommended)
+    socketio.run(app, debug=False, host='0.0.0.0', port=5000)
 

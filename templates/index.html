@@ -1,118 +1,183 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>AI Keyword Discovery Tool</title>
-    <style>
-        body { font-family: Arial, sans-serif; background:#f4f6f8; padding:40px; }
-        h1,p { text-align:center; }
-        textarea { width:60%; height:100px; padding:10px; font-size:16px; display:block; margin:0 auto; }
-        button { padding:8px 15px; font-size:14px; background:#2d89ef; color:white; border:none; cursor:pointer; border-radius:4px; }
-        #generateBtn { display:block; margin:15px auto; }
-        #mainContainer { display:flex; gap:30px; margin-top:40px; }
-        #leftPanel,#rightPanel { flex:1; background:white; padding:20px; border-radius:6px; box-shadow:0 0 5px rgba(0,0,0,0.1); }
-        .chip { margin:6px; background:#2d89ef; }
-        .group-chip { display:inline-block; margin:5px; padding:5px 8px; background:#ddd; border-radius:4px; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Keyword Discovery</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --bg:#0b1020;
+  --panel:#12182b;
+  --panel-2:#0f1526;
+  --border:#1f2740;
+  --text:#e6e9f2;
+  --muted:#8b93a7;
+  --primary:#6366f1;
+  --primary-soft:rgba(99,102,241,.15);
+  --danger:#ef4444;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,Arial;background:radial-gradient(circle at top,#0f162d,#050814 60%);color:var(--text);}
+
+.header{padding:26px 28px 18px;border-bottom:1px solid var(--border);}
+.title{font-size:26px;font-weight:700;margin-bottom:14px;}
+.search-row{display:flex;gap:14px;}
+.search-row textarea{flex:1;height:52px;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:12px;color:var(--text);}
+.btn{border:none;border-radius:10px;padding:12px 18px;font-weight:600;cursor:pointer;}
+.btn.primary{background:var(--primary);color:white}
+.btn.secondary{background:var(--panel-2);color:var(--text);border:1px solid var(--border)}
+
+.layout{display:grid;grid-template-columns:320px 1fr 300px;gap:22px;padding:22px 26px;}
+.panel{background:linear-gradient(180deg,var(--panel),#0d1326);border:1px solid var(--border);border-radius:16px;padding:18px;height:600px;display:flex;flex-direction:column;}
+.panel-title{font-weight:600;font-size:16px;margin-bottom:14px;}
+
+.section-label{font-size:12px;color:var(--muted);margin:14px 0 8px;letter-spacing:.04em;}
+.group-box{background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:12px;}
+.term-input{width:100%;margin-top:8px;padding:8px;border-radius:8px;border:1px solid var(--border);background:#050814;color:white;}
+.add-btn{margin-top:10px;width:100%;padding:10px;border-radius:10px;border:1px dashed var(--primary);background:transparent;color:var(--primary);cursor:pointer;}
+.not-row{display:flex;gap:8px;margin-top:8px;}
+.not-row input{flex:1;padding:8px;border-radius:8px;border:1px solid #3a1c22;background:#050814;color:white;}
+.not-row button{background:#3a1c22;border:none;border-radius:8px;padding:8px 12px;color:#ff6b6b;}
+
+.query-box{
+  margin-top:12px;
+  padding:10px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:#050814;
+  font-size:12px;
+  font-family:monospace;
+  min-height:70px;
+  overflow:auto;
+}
+
+.source-box{background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:12px;display:flex;flex-wrap:wrap;gap:12px;font-size:13px;}
+.filter-row{display:flex;gap:10px;margin-top:12px;}
+.filter-row input{flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);background:#050814;color:white;}
+.clear-btn{padding:10px 14px;border-radius:10px;border:1px solid var(--primary);background:transparent;color:var(--primary);}
+.intelligence-title{margin-top:20px;font-weight:600;font-size:18px;}
+.intelligence-sub{font-size:12px;color:var(--muted);margin-bottom:16px;}
+.empty-state{flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;text-align:center;padding:0 20px;}
+
+.tabs{display:flex;gap:16px;border-bottom:1px solid var(--border);margin-bottom:14px;}
+.tab{padding-bottom:8px;font-size:14px;color:var(--muted);}
+.tab.active{color:var(--primary);border-bottom:2px solid var(--primary);}
+.activity-empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;}
+</style>
 </head>
+
 <body>
 
-<h1>AI Keyword Discovery Prototype</h1>
-<p>Enter a research idea or keywords:</p>
+<div class="header">
+  <div class="title">AI Keyword Discovery</div>
+  <div class="search-row">
+    <textarea placeholder="e.g. Early detection of Alzheimer's via acoustic speech biomarkers"></textarea>
+    <button class="btn primary" onclick="buildQuery()">Generate keywords</button>
+    <button class="btn secondary" onclick="resetQuery()">Reset</button>
+  </div>
+</div>
 
-<textarea id="userInput" placeholder="Example: Detecting Alzheimer's using speech patterns"></textarea>
-<button id="generateBtn" onclick="generateKeywords()">Generate Keywords</button>
+<div class="layout">
 
-<div id="mainContainer">
-    <div id="leftPanel">
-        <h2>Query Builder</h2>
-        <div id="groupContainer"></div>
-    </div>
-    <div id="rightPanel">
-    <h2 id="suggestionTitle">Suggested Keywords</h2>
-    <div id="suggestionsContainer"></div>
+<!-- LEFT PANEL -->
+<div class="panel">
+  <div class="panel-title">Query Builder</div>
+
+  <div class="section-label">OR GROUPS — SYNONYMS & ALTERNATIVES</div>
+  <div class="group-box">
+    <div style="font-weight:600;margin-bottom:6px">OR group 1</div>
+    <input id="orInput" class="term-input" placeholder="Add term and press Enter">
+    <div id="orList"></div>
+  </div>
+  <button class="add-btn">+ Add OR group</button>
+
+  <div class="section-label">AND GROUPS — COMBINE CONCEPTS</div>
+  <button class="add-btn">+ Add AND group</button>
+
+  <div class="section-label" style="color:#ff6b6b">Exclude terms (NOT)</div>
+  <div class="not-row">
+    <input id="notInput" placeholder="Add a term to exclude">
+    <button onclick="addNot()">Add</button>
+  </div>
+  <div id="notList" style="color:var(--muted);font-size:12px;margin-top:8px">No exclusions yet</div>
+
+  <!-- BUILT QUERY -->
+  <div class="section-label">BUILT BOOLEAN QUERY</div>
+  <div id="queryOutput" class="query-box">No query yet</div>
+</div>
+
+<!-- MIDDLE PANEL -->
+<div class="panel">
+  <div class="panel-title">Search Sources</div>
+  <div class="source-box">
+    <label><input type="checkbox" checked> Semantic Scholar</label>
+    <label><input type="checkbox"> OpenAlex</label>
+    <label><input type="checkbox" checked> PubMed</label>
+    <label><input type="checkbox"> IEEE</label>
+    <label><input type="checkbox"> arXiv</label>
+    <label><input type="checkbox"> Keywords only</label>
+  </div>
+
+  <div class="filter-row">
+    <input placeholder="Filter suggestions">
+    <button class="clear-btn">Clear</button>
+  </div>
+
+  <div class="intelligence-title">Keyword Intelligence</div>
+  <div class="intelligence-sub">Relevance Score • Source Badge • Similarity Indicator</div>
+
+  <div class="empty-state">
+    Enter a research topic and click "Generate keywords" to see suggestions.
+  </div>
+</div>
+
+<!-- RIGHT PANEL -->
+<div class="panel">
+  <div class="tabs">
+    <div class="tab active">Activity</div>
+    <div class="tab">Sources</div>
+  </div>
+  <div class="activity-empty">No activity yet</div>
 </div>
 
 </div>
 
 <script>
-let selectedGroups = [[]];
+let orTerms=[];
+let notTerms=[];
 
-async function generateKeywords(){
-    let text=document.getElementById("userInput").value;
-    const response=await fetch("/keywords",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text})});
-    const data=await response.json();
-    displaySuggestions(data.keywords);
-    document.getElementById("suggestionTitle").innerText = "Suggested Keywords";
+document.getElementById("orInput").addEventListener("keypress",e=>{
+ if(e.key==="Enter"){
+   const v=e.target.value.trim();
+   if(v){orTerms.push(v);e.target.value="";renderOr();}
+ }
+});
 
-    renderGroups();
+function renderOr(){
+ document.getElementById("orList").textContent=orTerms.join(", ");
 }
 
-function createChip(keyword){
-    let chip=document.createElement("button");
-    chip.className="chip";
-    chip.innerText=keyword;
-    chip.setAttribute("data-key",keyword);
-    chip.onclick=()=>onKeywordClick(keyword);
-    return chip;
+function addNot(){
+ const v=document.getElementById("notInput").value.trim();
+ if(v){notTerms.push(v);document.getElementById("notInput").value="";}
+ document.getElementById("notList").textContent=notTerms.join(", ")||"No exclusions yet";
 }
 
-function displaySuggestions(keywords){
-    let container=document.getElementById("suggestionsContainer");
-    container.innerHTML="";
-    keywords.forEach(k=>container.appendChild(createChip(k)));
+function buildQuery(){
+ let q="";
+ if(orTerms.length) q=`(${orTerms.join(" OR ")})`;
+ if(notTerms.length) q+=` NOT (${notTerms.join(" OR ")})`;
+ document.getElementById("queryOutput").textContent=q||"No query yet";
 }
 
-function appendNewSuggestions(newKeywords){
-    let container=document.getElementById("suggestionsContainer");
-    newKeywords.forEach(k=>{
-        if(document.querySelector(`[data-key='${k}']`)) return;
-        container.appendChild(createChip(k));
-    });
-}
-
-function addToGroup(keyword){
-    let currentGroup=selectedGroups[selectedGroups.length-1];
-    if(!currentGroup.includes(keyword)) currentGroup.push(keyword);
-    renderGroups();
-}
-
-function addNewGroup(){ selectedGroups.push([]); renderGroups(); }
-
-async function onKeywordClick(keyword){
-    addToGroup(keyword);
-    document.getElementById("suggestionTitle").innerText =
-    "More like: " + keyword;
-
-    const response=await fetch("/expand-term",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({term:keyword})});
-    if(!response.ok) return;
-    const data=await response.json();
-    appendNewSuggestions(data.expanded||[]);
-}
-
-async function generateBooleanQuery(){
-    const response=await fetch("/build-query",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({or_groups:selectedGroups,not_group:[]})});
-    const data=await response.json();
-    let container=document.getElementById("groupContainer");
-    let box=document.createElement("div");
-    box.style.marginTop="20px";box.style.padding="10px";box.style.background="#f0f0f0";
-    box.innerHTML="<strong>Boolean Query:</strong><br>"+data.boolean_query;
-    container.appendChild(box);
-}
-
-function renderGroups(){
-    let container=document.getElementById("groupContainer");
-    container.innerHTML="";
-    selectedGroups.forEach((group,index)=>{
-        let div=document.createElement("div");div.style.marginBottom="15px";
-        let title=document.createElement("h3");title.innerText="OR Group "+(index+1);div.appendChild(title);
-        group.forEach(term=>{
-            let chip=document.createElement("span");chip.className="group-chip";chip.innerText=term;div.appendChild(chip);
-        });
-        container.appendChild(div);
-        if(index<selectedGroups.length-1){let and=document.createElement("div");and.innerText="AND";and.style.fontWeight="bold";container.appendChild(and);}    
-    });
-    let build=document.createElement("button");build.innerText="Build Boolean Query";build.onclick=generateBooleanQuery;container.appendChild(build);
-    let add=document.createElement("button");add.innerText=" + Add AND Group";add.onclick=addNewGroup;add.style.marginLeft="10px";container.appendChild(add);
+function resetQuery(){
+ orTerms=[];notTerms=[];
+ renderOr();
+ document.getElementById("notList").textContent="No exclusions yet";
+ document.getElementById("queryOutput").textContent="No query yet";
 }
 </script>
 
