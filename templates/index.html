@@ -3,117 +3,306 @@
 <head>
     <title>AI Keyword Discovery Tool</title>
     <style>
-        body { font-family: Arial, sans-serif; background:#f4f6f8; padding:40px; }
+        body {
+            font-family: Arial, sans-serif;
+            background:#f4f6f8;
+            padding:40px;
+        }
+
         h1,p { text-align:center; }
-        textarea { width:60%; height:100px; padding:10px; font-size:16px; display:block; margin:0 auto; }
-        button { padding:8px 15px; font-size:14px; background:#2d89ef; color:white; border:none; cursor:pointer; border-radius:4px; }
-        #generateBtn { display:block; margin:15px auto; }
-        #mainContainer { display:flex; gap:30px; margin-top:40px; }
-        #leftPanel,#rightPanel { flex:1; background:white; padding:20px; border-radius:6px; box-shadow:0 0 5px rgba(0,0,0,0.1); }
-        .chip { margin:6px; background:#2d89ef; }
-        .group-chip { display:inline-block; margin:5px; padding:5px 8px; background:#ddd; border-radius:4px; }
+
+        textarea {
+            width:60%;
+            height:100px;
+            padding:10px;
+            font-size:16px;
+            display:block;
+            margin:0 auto;
+        }
+
+        button {
+            cursor:pointer;
+            border:none;
+        }
+
+        #generateBtn {
+            display:block;
+            margin:15px auto;
+            padding:8px 15px;
+            background:#2d89ef;
+            color:white;
+            border-radius:6px;
+        }
+
+        #mainContainer {
+            display:flex;
+            gap:30px;
+            margin-top:40px;
+        }
+
+        #leftPanel,#rightPanel {
+            flex:1;
+            background:white;
+            padding:20px;
+            border-radius:8px;
+            box-shadow:0 0 8px rgba(0,0,0,0.08);
+        }
+
+        /* NODE STRUCTURE */
+        .node {
+            margin-bottom:10px;
+        }
+
+        .node-header {
+            display:flex;
+            align-items:center;
+            gap:6px;
+        }
+
+        .arrow {
+            font-size:14px;
+            width:18px;
+            background:none;
+        }
+
+        .chip {
+            background:#2d89ef;
+            color:white;
+            padding:6px 12px;
+            border-radius:20px;
+            font-size:13px;
+        }
+
+        .children-box {
+            margin-top:6px;
+            margin-left:20px;
+            background:#f0f0f0;
+            padding:10px;
+            border-radius:8px;
+            display:none;
+            flex-wrap:wrap;
+            gap:6px;
+        }
+
+        .children-box button {
+            background:#4a9fff;
+            color:white;
+            padding:5px 10px;
+            border-radius:15px;
+            font-size:12px;
+        }
+
+        .group-chip {
+            display:inline-block;
+            margin:5px;
+            padding:5px 10px;
+            background:#ddd;
+            border-radius:15px;
+        }
+
+        .query-box {
+            margin-top:15px;
+            padding:10px;
+            background:#f0f0f0;
+            border-radius:6px;
+        }
+
     </style>
 </head>
+
 <body>
 
 <h1>AI Keyword Discovery Prototype</h1>
 <p>Enter a research idea or keywords:</p>
 
-<textarea id="userInput" placeholder="Example: Detecting Alzheimer's using speech patterns"></textarea>
+<textarea id="userInput"></textarea>
 <button id="generateBtn" onclick="generateKeywords()">Generate Keywords</button>
 
 <div id="mainContainer">
+
     <div id="leftPanel">
         <h2>Query Builder</h2>
         <div id="groupContainer"></div>
     </div>
+
     <div id="rightPanel">
-    <h2 id="suggestionTitle">Suggested Keywords</h2>
-    <div id="suggestionsContainer"></div>
-</div>
+        <h2>Suggested Keywords</h2>
+        <div id="suggestionsContainer"></div>
+    </div>
 
 </div>
 
 <script>
+
 let selectedGroups = [[]];
 
-async function generateKeywords(){
-    let text=document.getElementById("userInput").value;
-    const response=await fetch("/keywords",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text})});
-    const data=await response.json();
-    displaySuggestions(data.keywords);
-    document.getElementById("suggestionTitle").innerText = "Suggested Keywords";
+async function generateKeywords() {
 
-    renderGroups();
-}
+    let text = document.getElementById("userInput").value;
 
-function createChip(keyword){
-    let chip=document.createElement("button");
-    chip.className="chip";
-    chip.innerText=keyword;
-    chip.setAttribute("data-key",keyword);
-    chip.onclick=()=>onKeywordClick(keyword);
-    return chip;
-}
-
-function displaySuggestions(keywords){
-    let container=document.getElementById("suggestionsContainer");
-    container.innerHTML="";
-    keywords.forEach(k=>container.appendChild(createChip(k)));
-}
-
-function appendNewSuggestions(newKeywords){
-    let container=document.getElementById("suggestionsContainer");
-    newKeywords.forEach(k=>{
-        if(document.querySelector(`[data-key='${k}']`)) return;
-        container.appendChild(createChip(k));
+    const response = await fetch("/keywords", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ text })
     });
-}
 
-function addToGroup(keyword){
-    let currentGroup=selectedGroups[selectedGroups.length-1];
-    if(!currentGroup.includes(keyword)) currentGroup.push(keyword);
+    const data = await response.json();
+
+    let container = document.getElementById("suggestionsContainer");
+    container.innerHTML = "";
+
+    data.keywords.forEach(keyword => {
+        createNode(container, keyword);
+    });
+
     renderGroups();
 }
 
-function addNewGroup(){ selectedGroups.push([]); renderGroups(); }
 
-async function onKeywordClick(keyword){
-    addToGroup(keyword);
-    document.getElementById("suggestionTitle").innerText =
-    "More like: " + keyword;
+function createNode(parent, keyword) {
 
-    const response=await fetch("/expand-term",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({term:keyword})});
-    if(!response.ok) return;
-    const data=await response.json();
-    appendNewSuggestions(data.expanded||[]);
+    let nodeDiv = document.createElement("div");
+    nodeDiv.className = "node";
+
+    let header = document.createElement("div");
+    header.className = "node-header";
+
+    let arrow = document.createElement("button");
+    arrow.className = "arrow";
+    arrow.innerText = "▶";
+
+    let chip = document.createElement("button");
+    chip.className = "chip";
+    chip.innerText = keyword;
+
+    let childrenBox = document.createElement("div");
+    childrenBox.className = "children-box";
+
+    // Toggle expansion
+    arrow.onclick = async () => {
+
+        if(childrenBox.style.display === "flex") {
+            childrenBox.style.display = "none";
+            arrow.innerText = "▶";
+            return;
+        }
+
+        arrow.innerText = "▼";
+
+        if(childrenBox.childElementCount === 0) {
+
+            const response = await fetch("/expand-term", {
+                method:"POST",
+                headers:{ "Content-Type":"application/json" },
+                body: JSON.stringify({ term: keyword })
+            });
+
+            if(!response.ok) return;
+
+            const data = await response.json();
+
+            data.expanded.forEach(child => {
+                createNode(childrenBox, child);
+            });
+        }
+
+        childrenBox.style.display = "flex";
+    };
+
+    // Add to Boolean group
+    chip.onclick = () => addToGroup(keyword);
+
+    header.appendChild(arrow);
+    header.appendChild(chip);
+
+    nodeDiv.appendChild(header);
+    nodeDiv.appendChild(childrenBox);
+
+    parent.appendChild(nodeDiv);
 }
 
-async function generateBooleanQuery(){
-    const response=await fetch("/build-query",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({or_groups:selectedGroups,not_group:[]})});
-    const data=await response.json();
-    let container=document.getElementById("groupContainer");
-    let box=document.createElement("div");
-    box.style.marginTop="20px";box.style.padding="10px";box.style.background="#f0f0f0";
-    box.innerHTML="<strong>Boolean Query:</strong><br>"+data.boolean_query;
+
+// QUERY BUILDER
+
+function addToGroup(keyword) {
+    let current = selectedGroups[selectedGroups.length - 1];
+    if(!current.includes(keyword)) {
+        current.push(keyword);
+        renderGroups();
+    }
+}
+
+function addNewGroup() {
+    selectedGroups.push([]);
+    renderGroups();
+}
+
+async function generateBooleanQuery() {
+
+    const response = await fetch("/build-query", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+            or_groups: selectedGroups,
+            not_group: []
+        })
+    });
+
+    const data = await response.json();
+
+    let container = document.getElementById("groupContainer");
+
+    let box = document.createElement("div");
+    box.className = "query-box";
+    box.innerHTML = "<strong>Boolean Query:</strong><br>" + data.boolean_query;
+
     container.appendChild(box);
 }
 
-function renderGroups(){
-    let container=document.getElementById("groupContainer");
-    container.innerHTML="";
+function renderGroups() {
+
+    let container = document.getElementById("groupContainer");
+    container.innerHTML = "";
+
     selectedGroups.forEach((group,index)=>{
-        let div=document.createElement("div");div.style.marginBottom="15px";
-        let title=document.createElement("h3");title.innerText="OR Group "+(index+1);div.appendChild(title);
+
+        let div = document.createElement("div");
+        div.style.marginBottom="15px";
+
+        let title = document.createElement("h3");
+        title.innerText = "OR Group " + (index+1);
+        div.appendChild(title);
+
         group.forEach(term=>{
-            let chip=document.createElement("span");chip.className="group-chip";chip.innerText=term;div.appendChild(chip);
+            let chip = document.createElement("span");
+            chip.className="group-chip";
+            chip.innerText = term;
+            div.appendChild(chip);
         });
+
         container.appendChild(div);
-        if(index<selectedGroups.length-1){let and=document.createElement("div");and.innerText="AND";and.style.fontWeight="bold";container.appendChild(and);}    
+
+        if(index < selectedGroups.length-1){
+            let and = document.createElement("div");
+            and.innerText="AND";
+            and.style.fontWeight="bold";
+            container.appendChild(and);
+        }
     });
-    let build=document.createElement("button");build.innerText="Build Boolean Query";build.onclick=generateBooleanQuery;container.appendChild(build);
-    let add=document.createElement("button");add.innerText=" + Add AND Group";add.onclick=addNewGroup;add.style.marginLeft="10px";container.appendChild(add);
+
+    let build = document.createElement("button");
+    build.innerText="Build Boolean Query";
+    build.onclick=generateBooleanQuery;
+
+    let add = document.createElement("button");
+    add.innerText="+ Add AND Group";
+    add.onclick=addNewGroup;
+    add.style.marginLeft="10px";
+
+    container.appendChild(build);
+    container.appendChild(add);
 }
+
 </script>
 
 </body>
